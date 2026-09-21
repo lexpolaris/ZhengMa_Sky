@@ -23,24 +23,32 @@ void UnitSession::start(ZbUnit *unit, ZmmbTable *zmmb, int trainMax)
         return;
     }
 
-    // 每轮题数
+    // 每轮题数（对应原版 sub_411B58）
     const int roundCount = [&]() {
         const int libNo = m_unit->libNo;
         if (libNo < 200) {
             if (count < 15)  return count;
             if (count < 100) return count / 2;
             if (count < 200) return count / 3;
+            if (count < 300) return count / 3;
             if (count < 500) return count / 4;
             return 200;
         }
         return 50;
     }();
 
-    m_pool.init(count, qMax(1, roundCount), m_unit->speedTable, 3);
+    // 速度表长度必须 = 题目数
+    if (m_unit->speedTable.size() != count) {
+        m_unit->speedTable.resize(count);
+        for (int i = 0; i < count; ++i)
+            m_unit->speedTable[i] = 0;
+    }
+
+    m_pool.init(count, qMax(1, roundCount), m_unit->speedTable);
     m_speed.startSession();
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
 
-    m_pool.next();          // 取出第一题
+    m_pool.next();
     emit questionChanged();
 }
 
