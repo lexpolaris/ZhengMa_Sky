@@ -182,9 +182,29 @@ bool MainWindow::loadData()
 
 void MainWindow::saveUserData()
 {
+    syncProgressToData();
     const QString appDir = QCoreApplication::applicationDirPath();
     const QString path = QDir(appDir).filePath("data/user.xml");
     m_userData.saveUserData(path);
+}
+
+// 把当前会话的 XP/等级/连对写回存档模型（训练模式槽，只增不减）
+void MainWindow::syncProgressToData()
+{
+    ZbUnit *unit = m_userData.findUnit(m_currentLibNo);
+    ZbModeState &st = m_userData.trainState();
+    if (unit) st.libName = unit->libName;
+    st.grade  = m_session.speed().grade();
+    st.xp     = m_session.speed().xp();
+    st.streak = m_session.speed().streak();
+}
+
+// 从存档恢复 XP/连对到当前会话（等级由 XP 派生，不直接恢复以防不一致）
+void MainWindow::restoreProgressFromData()
+{
+    const ZbModeState &st = m_userData.trainState();
+    m_session.speed().setXp(st.xp);
+    m_session.speed().setStreak(st.streak);
 }
 
 void MainWindow::loadUnit(int libNo)
@@ -206,6 +226,9 @@ void MainWindow::loadUnit(int libNo)
     m_session.setTestItemsOverride(m_testItemsCount);
     m_session.start(unit, &m_zmmb, trainMax);
 
+    // 恢复跨会话进度（XP/等级/连对），使等级不因重开或换单元而清零
+    restoreProgressFromData();
+
     refreshInfoPanel();
     m_questionPanel->focusInput();
 
@@ -219,6 +242,9 @@ void MainWindow::refreshInfoPanel()
 
     m_infoPanel->setUnitName(unit->libName);
     m_infoPanel->setGrade(m_session.speed().grade());
+    m_infoPanel->setXp(m_session.speed().xp(),
+                       m_session.speed().xpForNextLevel(),
+                       m_session.speed().xpAtThisLevel());
     m_infoPanel->setTotalTime(
         SpeedTracker::formatDuration(m_session.speed().totalMs()));
     m_infoPanel->setUnitTime(
@@ -243,6 +269,7 @@ void MainWindow::refreshInfoPanel()
                              roundsDone);
 
     m_infoPanel->setAccuracy(m_session.speed().accuracy());
+    m_infoPanel->setRecentSpeed(m_session.speed().recentSpeed());
     m_infoPanel->setSpeed(m_session.speed().currentSpeed(),
                           m_session.speed().bestSpeed());
 

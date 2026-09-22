@@ -152,6 +152,8 @@ bool UserData::saveUserData(const QString &filePath) const
         QDomElement e = doc.createElement(tag);
         e.setAttribute("LibName", s.libName);
         e.setAttribute("Grade", QString::number(s.grade));
+        e.setAttribute("Xp", QString::number(s.xp));
+        e.setAttribute("Streak", QString::number(s.streak));
         e.setAttribute("WrongCount", QString::number(s.wrongCount));
         e.setAttribute("RightCount", QString::number(s.rightCount));
         e.setAttribute("TotalTime", QString::number(s.totalTime));
@@ -261,6 +263,8 @@ void UserData::parseModeState(const QDomElement &elem, ZbModeState &state)
 {
     state.libName    = elem.attribute("LibName");
     state.grade      = elem.attribute("Grade", "0").toInt();
+    state.xp         = elem.attribute("Xp", "0").toLongLong();
+    state.streak     = elem.attribute("Streak", "0").toInt();
     state.wrongCount = elem.attribute("WrongCount", "0").toInt();
     state.rightCount = elem.attribute("RightCount", "0").toInt();
     state.totalTime  = elem.attribute("TotalTime", "0").toInt();

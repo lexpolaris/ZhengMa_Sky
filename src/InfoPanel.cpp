@@ -41,13 +41,15 @@ InfoPanel::InfoPanel(QWidget *parent)
     };
 
     addRow(0, "等级：", m_labelGrade);
-    addRow(1, "总时间：", m_labelTotalTime);
-    addRow(2, "单元时间：", m_labelUnitTime);
-    addRow(3, "本次时间：", m_labelSessionTime);
-    addRow(4, "字词数：", m_labelCharCount);
-    addRow(5, "训练进度：", m_labelProgress);
-    addRow(6, "正确率：", m_labelAccuracy);
-    addRow(7, "平均速度：", m_labelSpeed);
+    addRow(1, "经验：", m_labelXp);
+    addRow(2, "总时间：", m_labelTotalTime);
+    addRow(3, "单元时间：", m_labelUnitTime);
+    addRow(4, "本次时间：", m_labelSessionTime);
+    addRow(5, "字词数：", m_labelCharCount);
+    addRow(6, "训练进度：", m_labelProgress);
+    addRow(7, "正确率：", m_labelAccuracy);
+    addRow(8, "当前速度：", m_labelRecentSpeed);
+    addRow(9, "平均/最高：", m_labelSpeed);
 
     // 功能按钮
     auto *btnLayout = new QVBoxLayout();
@@ -155,6 +157,25 @@ void InfoPanel::setAccuracy(int p) { m_labelAccuracy->setText(QString("%1%").arg
 void InfoPanel::setSpeed(int cur, int best)
 {
     m_labelSpeed->setText(QString("%1/%2").arg(cur).arg(best));
+}
+
+void InfoPanel::setRecentSpeed(int recent)
+{
+    m_labelRecentSpeed->setText(QString::number(recent));
+}
+
+void InfoPanel::setXp(long long xp, long long next, long long atLevel)
+{
+    Q_UNUSED(atLevel);
+    // 显示累计总经验，并提示距下一级还差多少：如 "1234（还差566）"
+    //   xp   = 累计总经验（只增不减）
+    //   next = 升到下一级的累计门槛
+    if (next > xp) {
+        const long long remain = next - xp;
+        m_labelXp->setText(QString("%1（还差%2）").arg(xp).arg(remain));
+    } else {
+        m_labelXp->setText(QString::number(xp));
+    }
 }
 
 void InfoPanel::setLookupResult(const QString &text)

@@ -20,6 +20,8 @@ public:
     void setCharCount(int count);
     void setAccuracy(int percent);
     void setSpeed(int current, int best);
+    void setRecentSpeed(int recent);
+    void setXp(long long xp, long long next, long long atLevel);
     void setLookupResult(const QString &text);
     // 训练进度：
     //   roundLeft  本轮剩余题数（倒计数）
@@ -50,6 +52,8 @@ private:
     QLabel *m_labelProgress;
     QLabel *m_labelAccuracy;
     QLabel *m_labelSpeed;
+    QLabel *m_labelRecentSpeed;
+    QLabel *m_labelXp;
     QLineEdit *m_editLookup;
     QLabel    *m_labelLookupResult;
 };

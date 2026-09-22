@@ -51,6 +51,9 @@ private:
     void refreshInfoPanel();
     void applyDisplayType(int type);
 
+    // 把当前会话的 XP/等级/连对写回 UserData，并从 UserData 恢复到会话
+    void syncProgressToData();
+    void restoreProgressFromData();
     void enterTestMode();
     void loadTestPage();
     QList<QPair<QString, QString>> m_testItemsAll;   // 完整题目列表

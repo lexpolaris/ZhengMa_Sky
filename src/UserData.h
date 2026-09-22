@@ -31,6 +31,8 @@ struct ZbUnit {
 struct ZbModeState {
     QString libName;
     int grade = 0;
+    long long xp = 0;       // 累计经验（只增不减，等级由其派生）
+    int streak = 0;         // 最近连对次数（存档用）
     int wrongCount = 0;
     int rightCount = 0;
     int totalTime = 0;
@@ -73,6 +75,8 @@ public:
     // 三种模式状态
     const ZbModeState& trainState() const { return m_train; }
     const ZbModeState& testState() const { return m_test; }
+    ZbModeState& trainState() { return m_train; }
+    ZbModeState& testState()  { return m_test;  }
 
     // 单元列表
     const QList<ZbUnit>& units() const { return m_units; }
