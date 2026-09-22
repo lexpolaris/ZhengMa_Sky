@@ -60,6 +60,7 @@ private:
     int m_testTotalCorrect = 0;
     int m_testTotalWrong = 0;
     qint64 m_testElapsedMs = 0;
+    qint64 m_testKeyStrokes = 0;
 
     void switchToNextMode();
     void applyLearnMode(LearnMode mode);
@@ -80,7 +81,6 @@ private:
 
     // 参数设置
     int m_displayType = 0;          // 0=小写, 1=大写
-    int m_hotKey = 121;             // F10
     int m_tailTrainItemsCount = 5;
     bool m_autoTailTrainCount = true;
     int m_tailTrainMaxCount = 3;

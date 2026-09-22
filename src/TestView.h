@@ -26,7 +26,11 @@ public:
     int totalCount() const { return m_items.size(); }
     int correctCount() const;   // 本页首次答对的题数
     int wrongCount() const;     // 本页累积错误次数（含重试）
+    int keyStrokes() const { return m_keyStrokes; }  // 本页累计击键次数
     bool isFinished() const { return m_currentIndex >= m_items.size(); }
+
+    // 是否处于错题重测阶段
+    bool isRetesting() const { return m_retesting; }
 
     // 本页能放多少题（供 MainWindow 分页）
     int pageCapacity() const;
@@ -63,12 +67,14 @@ private:
         QString code;
         int originalIndex = -1;    // 在完整列表里的索引
         enum State { Pending, Correct, Wrong } state = Pending;
-        bool passedOnce = false;   // 是否已经答对过一次（用于 correctCount 不重复计）
+        bool passedOnce = false;   // 首轮是否首次答对（用于 correctCount 不重复计）
+        bool everWrong = false;    // 是否曾答错（用于错题重测）
     };
 
     void setupUi();
     void refreshDisplay();
     void updateProgress();
+    bool startRetest();   // 收集本页错题，开始新一轮重测；有错题返回 true
     QColor colorForState(TestItem::State state, bool isCurrent) const;
 
     QList<TestItem> m_items;
@@ -84,7 +90,11 @@ private:
     qint64 m_finalElapsedMs = -1;
 
     int m_currentWrongStreak = 0;
-    int m_totalWrong = 0;         // 本页累积错误次数（含重试）
+    int m_totalWrong = 0;         // 本页累积错误次数（含重试/重测）
+    int m_keyStrokes = 0;         // 本页累计击键次数
+    int m_firstRoundCorrect = 0;  // 首轮首次答对的题数（用于 correctCount）
+    bool m_retesting = false;     // 是否处于错题重测阶段
+    int m_retestRound = 0;        // 重测轮次（从 1 开始）
 
     // 全局累计（由 MainWindow 设置）
     int m_globalCorrect = 0;

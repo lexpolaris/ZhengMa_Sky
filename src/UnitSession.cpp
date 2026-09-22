@@ -45,6 +45,7 @@ void UnitSession::start(ZbUnit *unit, ZmmbTable *zmmb, int trainMax)
     }
 
     m_pool.init(count, qMax(1, roundCount), m_unit->speedTable);
+    m_speed.setEffectiveTiming(true);   // 训练：有效计时
     m_speed.startSession();
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
 
@@ -96,7 +97,9 @@ bool UnitSession::submit(const QString &input)
 
     const int questionIndex = m_pool.currentQuestionIndex();
     updateSpeedTable(questionIndex, correct, elapsed);
-    m_speed.recordKey(correct, item->code.length(), elapsed);
+    // 字词数按题目个数计（每字/词计 1 个）；击键数按输入编码字符数计
+    const int keyStrokes = qMax(1, input.trimmed().length());
+    m_speed.recordKey(correct, 1, elapsed, keyStrokes);
 
     // 实时刷新 Used（每答一题检查一次）
     m_unit->used = UserData::isUnitCompleted(*m_unit) ? 1 : 0;
@@ -113,14 +116,12 @@ void UnitSession::updateSpeedTable(int questionIndex, bool correct, qint64 elaps
 
     if (elapsedMs < Judge::kMaxElapsedMs) {
         if (correct) {
-            const double factor = Judge::lengthFactor(
-                m_unit->items[questionIndex].code.length());
-
+            // 速度表记录反应时间（ms），越小越熟悉
             if (table[questionIndex] >= 50000)
                 --table[questionIndex];
 
             if (table[questionIndex] < 50000)
-                table[questionIndex] = static_cast<int>(elapsedMs * factor);
+                table[questionIndex] = static_cast<int>(elapsedMs);
         } else {
             table[questionIndex] = Judge::kErrorMark;
         }
@@ -151,6 +152,7 @@ void UnitSession::nextRound()
 void UnitSession::enterTestMode()
 {
     m_testMode = true;
+    m_speed.setEffectiveTiming(false);  // 测试：秒表计时（不停）
     m_speed.startSession();
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
     emit questionChanged();

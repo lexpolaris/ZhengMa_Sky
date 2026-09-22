@@ -37,6 +37,7 @@ bool TestHistory::load(const QString &filePath)
         rec.libName    = e.attribute("LibName");
         rec.speed      = e.attribute("Speed", "0").toInt();
         rec.bestSpeed  = e.attribute("BestSpeed", "0").toInt();
+        rec.hitSpeed   = e.attribute("HitSpeed", "0").toDouble();
         rec.accuracy   = e.attribute("Accuracy", "0").toInt();
         rec.wrongCount = e.attribute("WrongCount", "0").toInt();
         rec.totalMs    = e.attribute("TotalTime", "0").toLongLong();
@@ -65,6 +66,7 @@ bool TestHistory::save(const QString &filePath) const
         e.setAttribute("LibName", rec.libName);
         e.setAttribute("Speed", rec.speed);
         e.setAttribute("BestSpeed", rec.bestSpeed);
+        e.setAttribute("HitSpeed", QString::number(rec.hitSpeed, 'f', 2));
         e.setAttribute("Accuracy", rec.accuracy);
         e.setAttribute("WrongCount", rec.wrongCount);
         e.setAttribute("TotalTime", QString::number(rec.totalMs));

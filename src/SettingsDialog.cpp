@@ -2,7 +2,7 @@
 #include "SettingsDialog.h"
 #include <QRadioButton>
 #include <QButtonGroup>
-#include <QKeySequenceEdit>
+
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QPushButton>
@@ -52,21 +52,6 @@ void SettingsDialog::setupUi()
     auto *displayLayout = new QVBoxLayout(groupDisplay);
     displayLayout->addWidget(m_rbUpper);
     displayLayout->addWidget(m_rbLower);
-
-    // === 快捷键定义 ===
-    auto *groupHotKey = new QGroupBox("快捷键定义", this);
-    groupHotKey->setFont(songFont);
-
-    auto *hotKeyLabel = new QLabel("显示/隐藏窗口：", groupHotKey);
-    hotKeyLabel->setFont(songFont);
-
-    m_hotKeyEdit = new QKeySequenceEdit(groupHotKey);
-    m_hotKeyEdit->setFont(songFont);
-    m_hotKeyEdit->setKeySequence(QKeySequence(Qt::Key_F10));
-
-    auto *hotKeyLayout = new QVBoxLayout(groupHotKey);
-    hotKeyLayout->addWidget(hotKeyLabel);
-    hotKeyLayout->addWidget(m_hotKeyEdit);
 
     // === 末位训练数量 ===
     auto *groupTrainItems = new QGroupBox("末位训练数量", this);
@@ -163,7 +148,6 @@ void SettingsDialog::setupUi()
     layout->setSpacing(10);
     layout->addWidget(title);
     layout->addWidget(groupDisplay);
-    layout->addWidget(groupHotKey);
     layout->addWidget(groupTrainItems);
     layout->addWidget(groupTrainMax);
     layout->addWidget(groupTestItems);
@@ -184,12 +168,6 @@ void SettingsDialog::setDisplayType(int type)
 {
     if (type == 1) m_rbUpper->setChecked(true);
     else           m_rbLower->setChecked(true);
-}
-
-void SettingsDialog::setHotKey(int key)
-{
-    if (key > 0)
-        m_hotKeyEdit->setKeySequence(QKeySequence(key));
 }
 
 void SettingsDialog::setTailTrainItemsCount(int count)
@@ -214,13 +192,6 @@ void SettingsDialog::setTailTrainMaxCount(int count)
 int SettingsDialog::displayType() const
 {
     return m_displayGroup->checkedId();   // 0=小写, 1=大写
-}
-
-int SettingsDialog::hotKey() const
-{
-    QKeySequence seq = m_hotKeyEdit->keySequence();
-    if (seq.isEmpty()) return 0;
-    return seq[0].toCombined();
 }
 
 int SettingsDialog::tailTrainItemsCount() const

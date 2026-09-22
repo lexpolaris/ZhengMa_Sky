@@ -4,7 +4,6 @@
 
 class QRadioButton;
 class QButtonGroup;
-class QKeySequenceEdit;
 class QSpinBox;
 class QCheckBox;
 class QPushButton;
@@ -17,14 +16,12 @@ public:
 
     // 设置初始值
     void setDisplayType(int type);              // 0=小写, 1=大写
-    void setHotKey(int key);                    // 虚拟键码
     void setTailTrainItemsCount(int count);     // 末位训练数量
     void setAutoTailTrainCount(bool autoMode);  // 自动确定
     void setTailTrainMaxCount(int count);       // 末位训练次数
 
     // 获取结果
     int displayType() const;
-    int hotKey() const;
     int tailTrainItemsCount() const;
     bool autoTailTrainCount() const;
     int tailTrainMaxCount() const;
@@ -44,8 +41,6 @@ private:
     QButtonGroup *m_displayGroup = nullptr;
     QRadioButton *m_rbUpper = nullptr;      // 大写
     QRadioButton *m_rbLower = nullptr;      // 小写
-
-    QKeySequenceEdit *m_hotKeyEdit = nullptr;
 
     QSpinBox *m_spinTrainItems = nullptr;   // 末位训练数量
 

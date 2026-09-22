@@ -100,19 +100,20 @@ void TestResultDialog::refreshChart()
     auto *scoreSeries = new QLineSeries();
     scoreSeries->setName("成绩");
 
-    // 击键速度曲线（可选）
+    // 击键速度曲线（可选）：help 规定以实际值的十倍绘制
     auto *hitSpeedSeries = new QLineSeries();
-    hitSpeedSeries->setName("击键速度");
+    hitSpeedSeries->setName("击键速度(x10)");
 
     int x = 0;
     int maxY = 0;
     for (const TestRecord &r : records) {
         speedSeries->append(x, r.speed);
-        int score = r.speed - r.wrongCount;
+        int score = r.score();
         scoreSeries->append(x, score);
-        hitSpeedSeries->append(x, r.bestSpeed);
+        const int hitScaled = static_cast<int>(r.hitSpeed * 10.0);
+        hitSpeedSeries->append(x, hitScaled);
 
-        maxY = std::max({maxY, r.speed, score, r.bestSpeed});
+        maxY = std::max({maxY, r.speed, score, hitScaled});
         ++x;
     }
 
@@ -177,25 +178,27 @@ void TestResultDialog::refreshHistory()
     QString html;
     html += "<table border='0' cellpadding='4' style='font-family:SimSun;font-size:11pt;'>";
     html += "<tr style='background-color:#E0E0E0;'>"
-            "<th>序号</th><th>日期</th><th>速度</th>"
-            "<th>成绩</th><th>正确率</th><th>错误数</th><th>用时</th></tr>";
+            "<th>序号</th><th>日期</th><th>平均速度</th>"
+            "<th>成绩</th><th>击键速度</th><th>正确率</th><th>错误数</th><th>用时</th></tr>";
 
     int i = 1;
     for (const TestRecord &r : records) {
-        int score = r.speed - r.wrongCount;
+        int score = r.score();
         html += QString("<tr>"
                         "<td align='center'>%1</td>"
                         "<td align='center'>%2</td>"
                         "<td align='center'>%3</td>"
                         "<td align='center'>%4</td>"
-                        "<td align='center'>%5%</td>"
-                        "<td align='center'>%6</td>"
+                        "<td align='center'>%5</td>"
+                        "<td align='center'>%6%</td>"
                         "<td align='center'>%7</td>"
+                        "<td align='center'>%8</td>"
                         "</tr>")
                 .arg(i++)
                 .arg(r.dateTime.toString("yyyy-MM-dd HH:mm"))
                 .arg(r.speed)
                 .arg(score)
+                .arg(QString::number(r.hitSpeed * 10.0, 'f', 1))
                 .arg(r.accuracy)
                 .arg(r.wrongCount)
                 .arg(SpeedTracker::formatDuration(r.totalMs));

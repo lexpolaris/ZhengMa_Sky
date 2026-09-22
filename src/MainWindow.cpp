@@ -411,6 +411,7 @@ void MainWindow::finishTest()
     rec.libName    = unit ? unit->libName : "";
     rec.speed      = m_session.speed().currentSpeed();
     rec.bestSpeed  = m_session.speed().bestSpeed();
+    rec.hitSpeed   = m_session.speed().hitSpeed();
     rec.accuracy   = m_session.speed().accuracy();
     rec.wrongCount = m_session.speed().wrongCount();
     rec.totalMs    = m_session.speed().sessionMs();
@@ -420,13 +421,17 @@ void MainWindow::finishTest()
     saveTestHistory();
 
     QMessageBox::information(this, "测试结束",
-        QString("速度：%1 字/分钟\n"
-                "最高速度：%2 字/分钟\n"
-                "正确率：%3%\n"
-                "错误数：%4\n"
-                "用时：%5")
+        QString("平均速度：%1 字(词)/分钟\n"
+                "最高速度：%2 字(词)/分钟\n"
+                "击键速度：%3 键/秒\n"
+                "测试成绩：%4（速度 - 错误数）\n"
+                "正确率：%5%\n"
+                "错误数：%6\n"
+                "用时：%7")
             .arg(rec.speed)
             .arg(rec.bestSpeed)
+            .arg(rec.hitSpeed, 0, 'f', 2)
+            .arg(rec.score())
             .arg(rec.accuracy)
             .arg(rec.wrongCount)
             .arg(SpeedTracker::formatDuration(rec.totalMs)));
@@ -508,7 +513,6 @@ void MainWindow::onSetupClicked()
 {
     SettingsDialog dlg(this);
     dlg.setDisplayType(m_displayType);
-    dlg.setHotKey(m_hotKey);
     dlg.setTailTrainItemsCount(m_tailTrainItemsCount);
     dlg.setAutoTailTrainCount(m_autoTailTrainCount);
     dlg.setTailTrainMaxCount(m_tailTrainMaxCount);
@@ -516,7 +520,6 @@ void MainWindow::onSetupClicked()
 
     if (dlg.exec() == QDialog::Accepted) {
         m_displayType = dlg.displayType();
-        m_hotKey = dlg.hotKey();
         m_tailTrainItemsCount = dlg.tailTrainItemsCount();
         m_autoTailTrainCount = dlg.autoTailTrainCount();
         m_tailTrainMaxCount = dlg.tailTrainMaxCount();
@@ -530,7 +533,6 @@ void MainWindow::onSetupClicked()
 
         qDebug() << "参数已更新:"
                  << "DisplayType=" << m_displayType
-                 << "HotKey=" << m_hotKey
                  << "TrainItems=" << m_tailTrainItemsCount
                  << "Auto=" << m_autoTailTrainCount
                  << "TrainMax=" << m_tailTrainMaxCount;
@@ -607,6 +609,7 @@ void MainWindow::enterTestMode()
     m_testTotalCorrect = 0;
     m_testTotalWrong = 0;
     m_testElapsedMs = 0;
+    m_testKeyStrokes = 0;
 
     m_questionPanel->setMode(QuestionPanel::Mode::Test);
 
@@ -666,6 +669,7 @@ void MainWindow::onTestPageFinished()
     m_testTotalCorrect += tv->correctCount();
     m_testTotalWrong   += tv->wrongCount();
     m_testElapsedMs    += tv->elapsedMs();
+    m_testKeyStrokes   += tv->keyStrokes();
 
     // 推进到下一页
     m_testPageOffset += m_testPageSize;
@@ -685,11 +689,17 @@ void MainWindow::onTestFinished()
     rec.libNo      = m_currentLibNo;
     rec.libName    = unit ? unit->libName : "";
 
+    // 测试速度 = 完成题数 / 秒表时间（秒表计时，含停顿）
+    const int itemTotal = m_testItemsAll.size();
     const int totalAns = m_testTotalCorrect + m_testTotalWrong;
-    rec.speed      = m_testElapsedMs > 0
-        ? static_cast<int>(60000LL * m_testTotalCorrect / m_testElapsedMs)
+    rec.speed      = (m_testElapsedMs > 0 && itemTotal > 0)
+        ? static_cast<int>(60000LL * itemTotal / m_testElapsedMs)
         : 0;
     rec.bestSpeed  = rec.speed;
+    // 击键速度 = 击键次数 / 时间(秒)
+    rec.hitSpeed   = m_testElapsedMs > 0
+        ? 1000.0 * m_testKeyStrokes / m_testElapsedMs
+        : 0.0;
     rec.accuracy   = totalAns > 0
         ? 100 * m_testTotalCorrect / totalAns
         : 0;
@@ -707,8 +717,16 @@ void MainWindow::onTestFinished()
     saveUserData();
 
     QMessageBox::information(this, "测试结束",
-        QString("速度：%1 字/分钟\n正确率：%2%\n错误数：%3\n用时：%4")
-            .arg(rec.speed).arg(rec.accuracy)
+        QString("平均速度：%1 字(词)/分钟\n"
+                "击键速度：%2 键/秒\n"
+                "测试成绩：%3（速度 - 错误数）\n"
+                "正确率：%4%\n"
+                "错误数：%5\n"
+                "用时：%6")
+            .arg(rec.speed)
+            .arg(rec.hitSpeed, 0, 'f', 2)
+            .arg(rec.score())
+            .arg(rec.accuracy)
             .arg(rec.wrongCount)
             .arg(SpeedTracker::formatDuration(rec.totalMs)));
 

@@ -69,7 +69,7 @@ bool UserData::loadUserData(const QString &filePath)
     m_date              = root.attribute("Date", m_date);
     m_displayType       = root.attribute("DisplayType", "0").toInt();
     m_tailTrainMax      = root.attribute("TailTrainMax", "3").toInt();
-    m_hotKey            = root.attribute("HotKey", "121").toInt();
+
     m_showSimilarRoot   = root.attribute("ShowSimilarRoot", "0").toInt();
     m_windowsLayout     = root.attribute("WindowsLayout", "0").toInt();
     m_autoTailTrainCount= root.attribute("AutoTailTrainCount", "0").toInt();
@@ -139,7 +139,6 @@ bool UserData::saveUserData(const QString &filePath) const
     root.setAttribute("Date", m_date);
     root.setAttribute("DisplayType", QString::number(m_displayType));
     root.setAttribute("TailTrainMax", QString::number(m_tailTrainMax));
-    root.setAttribute("HotKey", QString::number(m_hotKey));
     root.setAttribute("ShowSimilarRoot", QString::number(m_showSimilarRoot));
     root.setAttribute("WindowsLayout", QString::number(m_windowsLayout));
     root.setAttribute("AutoTailTrainCount", QString::number(m_autoTailTrainCount));
@@ -226,7 +225,6 @@ void UserData::parseRoot(const QDomElement &root)
     m_date              = root.attribute("Date");
     m_displayType       = root.attribute("DisplayType", "0").toInt();
     m_tailTrainMax      = root.attribute("TailTrainMax", "3").toInt();
-    m_hotKey            = root.attribute("HotKey", "121").toInt();
     m_showSimilarRoot   = root.attribute("ShowSimilarRoot", "0").toInt();
     m_windowsLayout     = root.attribute("WindowsLayout", "0").toInt();
     m_autoTailTrainCount= root.attribute("AutoTailTrainCount", "0").toInt();

@@ -58,7 +58,7 @@ public:
     QString date() const { return m_date; }
     int displayType() const { return m_displayType; }
     int tailTrainMax() const { return m_tailTrainMax; }
-    int hotKey() const { return m_hotKey; }
+
     int showSimilarRoot() const { return m_showSimilarRoot; }
     int windowsLayout() const { return m_windowsLayout; }
     int autoTailTrainCount() const { return m_autoTailTrainCount; }
@@ -95,7 +95,6 @@ private:
     QString m_date;
     int m_displayType = 0;
     int m_tailTrainMax = 3;
-    int m_hotKey = 121;
     int m_showSimilarRoot = 0;
     int m_windowsLayout = 0;
     int m_autoTailTrainCount = 0;

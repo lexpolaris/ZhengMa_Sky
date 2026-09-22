@@ -14,9 +14,6 @@ public:
     // 判定（单个编码）
     static bool isCorrect(const QString &input, const QString &code);
 
-    // 长度修正因子
-    static double lengthFactor(int targetLength);
-
     // 错误标记值（速度表中）
     static constexpr int kErrorMark = 50002;
     static constexpr int kMaxElapsedMs = 20000;

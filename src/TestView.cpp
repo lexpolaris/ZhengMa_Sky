@@ -155,6 +155,10 @@ void TestView::loadItems(const QList<QPair<QString, QString>> &items,
     m_currentIndex = 0;
     m_totalWrong = 0;
     m_currentWrongStreak = 0;
+    m_keyStrokes = 0;
+    m_firstRoundCorrect = 0;
+    m_retesting = false;
+    m_retestRound = 0;
 
     for (int i = 0; i < items.size(); ++i) {
         TestItem item;
@@ -163,6 +167,7 @@ void TestView::loadItems(const QList<QPair<QString, QString>> &items,
         item.originalIndex = (i < originalIndices.size()) ? originalIndices[i] : i;
         item.state = TestItem::Pending;
         item.passedOnce = false;
+        item.everWrong = false;
         m_items.append(item);
     }
 
@@ -179,10 +184,15 @@ void TestView::reset()
     for (auto &item : m_items) {
         item.state = TestItem::Pending;
         item.passedOnce = false;
+        item.everWrong = false;
     }
     m_currentIndex = 0;
     m_totalWrong = 0;
     m_currentWrongStreak = 0;
+    m_keyStrokes = 0;
+    m_firstRoundCorrect = 0;
+    m_retesting = false;
+    m_retestRound = 0;
     m_editInput->clear();
     if (m_labelHint) m_labelHint->clear();
     refreshDisplay();
@@ -237,6 +247,10 @@ void TestView::updateProgress()
 
 int TestView::correctCount() const
 {
+    // 首轮：实时统计首轮首次答对数；进入重测后 items 只剩错题，用保存值
+    if (m_retesting)
+        return m_firstRoundCorrect;
+
     int n = 0;
     for (const auto &item : m_items)
         if (item.passedOnce) ++n;
@@ -252,6 +266,9 @@ bool TestView::submitInput(const QString &input)
 {
     if (m_currentIndex >= m_items.size()) return false;
     if (input.isEmpty()) return false;
+
+    // 累计击键次数（本次输入的编码字符数）
+    m_keyStrokes += qMax(1, input.trimmed().length());
 
     TestItem &item = m_items[m_currentIndex];
 
@@ -271,7 +288,9 @@ bool TestView::submitInput(const QString &input)
     if (correct) {
         // 无论是否第一次答对，都标记为 Correct
         item.state = TestItem::Correct;
-        item.passedOnce = true;
+        // 仅首轮记录「首次答对」，用于 correctCount；重测轮不重复计
+        if (!m_retesting)
+            item.passedOnce = true;
 
         ++m_currentIndex;
         m_editInput->clear();
@@ -282,14 +301,18 @@ bool TestView::submitInput(const QString &input)
         emit itemAnswered(true, originalIdx);
 
         if (m_currentIndex >= m_items.size()) {
+            // 本轮跑完：若还有曾答错的题，则进入错题重测
+            if (startRetest())
+                return true;
+
             refreshDisplay();
             stopTimer();
-            emit finished();      // 本页打完
+            emit finished();      // 本页全部通过
             return true;
-        }
-    } else {
+        }    } else {
         // 每次答错都累积 +1
         item.state = TestItem::Wrong;
+        item.everWrong = true;
         ++m_totalWrong;
         m_editInput->clear();
         ++m_currentWrongStreak;
@@ -306,6 +329,48 @@ bool TestView::submitInput(const QString &input)
 
     refreshDisplay();
     return correct;
+}
+
+bool TestView::startRetest()
+{
+    // 首次进入重测前，保存首轮首次答对数
+    if (!m_retesting) {
+        int n = 0;
+        for (const auto &item : m_items)
+            if (item.passedOnce) ++n;
+        m_firstRoundCorrect = n;
+    }
+
+    // 收集本轮曾答错的题（保持原顺序）
+    QList<TestItem> wrongItems;
+    for (const auto &item : m_items) {
+        if (item.everWrong) {
+            TestItem t = item;
+            t.state = TestItem::Pending;
+            t.passedOnce = false;
+            t.everWrong = false;   // 新一轮重新统计
+            wrongItems.append(t);
+        }
+    }
+
+    if (wrongItems.isEmpty())
+        return false;              // 无错题，测试结束
+
+    // 进入（或继续）错题重测：items 仅保留错题
+    m_items = wrongItems;
+    m_currentIndex = 0;
+    m_currentWrongStreak = 0;
+    m_retesting = true;
+    ++m_retestRound;
+    m_editInput->clear();
+    if (m_labelHint) {
+        m_labelHint->setText(
+            QString("错题重测（第 %1 轮）：共 %2 题")
+                .arg(m_retestRound).arg(m_items.size()));
+    }
+
+    refreshDisplay();
+    return true;
 }
 
 void TestView::resizeEvent(QResizeEvent *event)

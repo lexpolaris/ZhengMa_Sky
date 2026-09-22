@@ -21,13 +21,3 @@ bool Judge::isCorrect(const QString &input, const QString &code)
 {
     return isCorrect(input, QStringList{code});
 }
-
-double Judge::lengthFactor(int targetLength)
-{
-    switch (targetLength) {
-    case 2: return 0.7;
-    case 3: return 0.5;
-    case 4: return 0.3;
-    default: return 1.0;
-    }
-}
