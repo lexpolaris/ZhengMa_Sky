@@ -45,15 +45,21 @@ class UserData
 public:
     UserData();
 
-    // 加载模板（只读）
+    // 加载题库（静态数据，只读）
+    //   优先解析紧凑文本格式（TSV），若文件不存在再回退到旧版 XML。
+    //   解析成功后清空并填充 m_units。
     bool loadTemplate(const QString &filePath);
+
+    // 加载旧的 XML 题库（Train.xml），保留用于向后兼容
+    bool loadTemplateXml(const QString &filePath);
+
+    // 加载紧凑文本题库（train.txt）
+    bool loadTemplateText(const QString &filePath);
 
     // 加载用户数据（可写），如果不存在就返回 false
     bool loadUserData(const QString &filePath);
-
     // 保存用户数据
     bool saveUserData(const QString &filePath) const;
-
     // 用户配置
     QString statusName() const { return m_statusName; }
     int score() const { return m_score; }
@@ -92,6 +98,10 @@ private:
     void parseRoot(const QDomElement &root);
     void parseModeState(const QDomElement &elem, ZbModeState &state);
     void parseUnit(const QDomElement &elem, ZbUnit &unit);
+
+    // 补全单元的派生字段：题目数、速度表、索引数组
+    // （文本解析器与 XML 解析器共用）
+    static void finalizeUnit(ZbUnit &unit);
 
     // 用户配置
     QString m_statusName;

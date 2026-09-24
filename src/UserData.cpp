@@ -9,7 +9,102 @@
 
 UserData::UserData() {}
 
+// ---------------------------------------------------------------------------
+// 题库加载（静态数据，只读）
+//
+// 根据扩展名自动选择解析器：
+//   .txt → 紧凑文本格式（新，推荐）
+//   其他 → 旧版 XML（向后兼容）
+// ---------------------------------------------------------------------------
 bool UserData::loadTemplate(const QString &filePath)
+{
+    if (filePath.endsWith(".txt", Qt::CaseInsensitive))
+        return loadTemplateText(filePath);
+    return loadTemplateXml(filePath);
+}
+
+// ---------------------------------------------------------------------------
+// 紧凑文本题库解析（train.txt）
+//
+// 格式（UTF-8，制表符分隔）：
+//   单元头:  @Lib<TAB>LibNo<TAB>LibName<TAB>Count
+//   题目行:  字词<TAB>编码<TAB>拆分<TAB>联想
+//   空行 / 以 '#' 开头的行  → 忽略
+//
+// 与旧版 XML 相比：去掉了用户进度/配置属性，本文件只含静态题库，
+// 体积更小、便于手工维护与 diff；进度与速度表一律存于 user.xml。
+// ---------------------------------------------------------------------------
+bool UserData::loadTemplateText(const QString &filePath)
+{
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qWarning() << "无法打开题库:" << filePath;
+        return false;
+    }
+
+    QTextStream stream(&file);
+    stream.setEncoding(QStringConverter::Utf8);
+
+    m_units.clear();
+
+    ZbUnit *unit = nullptr;   // 当前正在填充的单元
+    int lineNo = 0;
+
+    while (!stream.atEnd()) {
+        const QString line = stream.readLine();
+        ++lineNo;
+
+        // 跳过空行与注释
+        if (line.isEmpty() || line.startsWith('#'))
+            continue;
+
+        // 单元头：@Lib \t LibNo \t LibName \t Count
+        if (line.startsWith("@Lib")) {
+            const QStringList cols = line.split('\t');
+            if (cols.size() < 3) {
+                qWarning() << "题库第" << lineNo << "行单元头格式错误";
+                unit = nullptr;
+                continue;
+            }
+            ZbUnit u;
+            u.libNo   = cols.value(1).toInt();
+            u.libName = cols.value(2);
+            m_units.append(u);
+            unit = &m_units.last();
+            continue;
+        }
+
+        // 题目行：字词 \t 编码 \t 拆分 \t 联想（必须先有单元头）
+        if (!unit)
+            continue;
+
+        const QStringList cols = line.split('\t');
+        ZbItem item;
+        item.charText  = cols.value(0);
+        item.code      = cols.value(1);
+        item.split     = cols.value(2);
+        item.associate = cols.value(3);
+
+        if (item.charText.trimmed().isEmpty())
+            continue;
+
+        unit->items.append(item);
+    }
+
+    file.close();
+
+    // 收尾：补全题目数并初始化速度表 / 索引数组
+    for (ZbUnit &u : m_units)
+        finalizeUnit(u);
+
+    qDebug() << "题库(文本)加载完成:" << m_units.size() << "个单元";
+    return !m_units.isEmpty();
+}
+
+// ---------------------------------------------------------------------------
+// 旧版 XML 题库解析（Train.xml），保留用于向后兼容
+// ---------------------------------------------------------------------------
+bool UserData::loadTemplateXml(const QString &filePath)
 {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -40,8 +135,22 @@ bool UserData::loadTemplate(const QString &filePath)
         m_units.append(unit);
     }
 
-    qDebug() << "模板加载完成:" << m_units.size() << "个单元";
+    qDebug() << "题库(XML)加载完成:" << m_units.size() << "个单元";
     return true;
+}
+
+// 补全单元的派生字段：题目数、速度表、索引数组（两个解析器共用）
+void UserData::finalizeUnit(ZbUnit &unit)
+{
+    unit.count = unit.items.size();
+
+    // 速度表（0 = 未训练，越大越慢）
+    unit.speedTable.assign(unit.items.size(), 0);
+
+    // 题目池索引
+    unit.indexArray.resize(unit.items.size());
+    for (int i = 0; i < unit.items.size(); ++i)
+        unit.indexArray[i] = i;
 }
 
 bool UserData::loadUserData(const QString &filePath)
@@ -173,11 +282,9 @@ bool UserData::saveUserData(const QString &filePath) const
         lib.setAttribute("Count", QString::number(u.count));
         lib.setAttribute("WrongCount", QString::number(u.wrongCount));
         lib.setAttribute("RightCount", QString::number(u.rightCount));
-        lib.setAttribute("Used", QString::number(u.used));
 
-        // 根据速度表实时计算 Used
-        const bool completed = isUnitCompleted(u);
-        lib.setAttribute("Used", completed ? "1" : "0");
+        // Used 始终根据速度表实时计算，避免与 u.used 不一致
+        lib.setAttribute("Used", isUnitCompleted(u) ? "1" : "0");
 
         // 速度表：只保存非零项，压缩存储
         QDomElement speeds = doc.createElement("SpeedTable");
@@ -192,17 +299,8 @@ bool UserData::saveUserData(const QString &filePath) const
         if (speeds.hasChildNodes())
             lib.appendChild(speeds);
 
-        // 题目（可选：如果不想重复保存，可以省略）
-        // 由于题目在 Train.xml 里已有，user.xml 里可以只存进度和速度
-        // for (const ZbItem &it : u.items) {
-        //     QDomElement b = doc.createElement("b");
-        //     b.setAttribute("c", it.charText);
-        //     b.setAttribute("m", it.code);
-        //     b.setAttribute("s", it.split);
-        //     b.setAttribute("a", it.associate);
-        //     lib.appendChild(b);
-        // }
-        
+        // 题目本身保存在题库文件（train.txt / Train.xml）中，
+        // user.xml 只存进度与速度表，不重复保存题目。
         libs.appendChild(lib);
     }
     root.appendChild(libs);
@@ -297,18 +395,8 @@ void UserData::parseUnit(const QDomElement &elem, ZbUnit &unit)
         unit.items.append(item);
     }
 
-    // 初始化速度表（0 = 未使用，越大越慢）
-    unit.speedTable.resize(unit.items.size());
-    for (int i = 0; i < unit.items.size(); ++i)
-        unit.speedTable[i] = 0;
-
-    unit.indexArray.resize(unit.items.size());
-    for (int i = 0; i < unit.items.size(); ++i)
-        unit.indexArray[i] = i;
-
-    // qDebug() << "解析单元: LibNo =" << unit.libNo
-    //          << " LibName =" << unit.libName
-    //          << " 题目数 =" << unit.items.size();
+    // 初始化速度表 / 索引数组（统一走 finalizeUnit）
+    finalizeUnit(unit);
 }
 
 ZbUnit* UserData::findUnit(int libNo)

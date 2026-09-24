@@ -15,6 +15,7 @@
 #include <QTime>
 #include <QMessageBox>
 #include <QDir>
+#include <QFile>
 #include <QCoreApplication>
 #include <QCloseEvent>
 #include <QDebug>
@@ -151,14 +152,19 @@ void MainWindow::setupConnections()
 bool MainWindow::loadData()
 {
     const QString appDir = QCoreApplication::applicationDirPath();
-    const QString trainPath = QDir(appDir).filePath("data/Train.xml");
+    const QString trainTxtPath = QDir(appDir).filePath("data/train.txt");
+    const QString trainXmlPath = QDir(appDir).filePath("data/Train.xml");
     const QString userPath  = QDir(appDir).filePath("data/user.xml");
     const QString zmmbPath  = QDir(appDir).filePath("data/zmmb.txt");
     const QString historyPath = QDir(appDir).filePath("data/test_history.xml");
 
-    // 1. 加载模板
+    // 1. 加载题库：优先紧凑文本 train.txt，回退到旧版 XML Train.xml
+    QString trainPath = trainTxtPath;
+    if (!QFile::exists(trainPath))
+        trainPath = trainXmlPath;
+
     if (!m_userData.loadTemplate(trainPath)) {
-        qWarning() << "模板加载失败";
+        qWarning() << "题库加载失败:" << trainPath;
         return false;
     }
 
