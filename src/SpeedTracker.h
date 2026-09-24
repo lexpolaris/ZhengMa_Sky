@@ -8,8 +8,8 @@ class SpeedTracker
 public:
     SpeedTracker();
 
-    // 开始一次训练（重置本轮累计，但保留跨会话的 XP/等级/连对）
-    //   keepProgress = true  时保留 m_xp/m_streak（升级里程碑只增不减）
+    // 开始一次训练（重置本轮累计，但保留跨会话的 积分/等级/连对）
+    //   keepProgress = true  时保留 m_score/m_streak（积分只增不减）
     void startSession(bool keepProgress = true);
 
     // 计时模式：
@@ -33,19 +33,25 @@ public:
     // 最高速度
     int bestSpeed() const { return m_bestSpeed; }
 
-    // 等级 = 累计 XP 达到的里程碑（只升不降）
+    // 等级 = 累计积分 / 10 + 1（对应原版 grade = score/10 + 1，只升不降）
     int grade() const;
 
-    // 当前等级升级还需的经验，以及本级已获得 / 本级所需（用于进度显示，可选）
-    long long xp() const { return m_xp; }
+    // 积分（对应原版 [self+62070]），只增不减
+    int scoreTotal() const { return m_score; }
+
+    // 累计积分（兼容旧接口名，语义等同 scoreTotal）
+    long long xp() const { return m_score; }
     long long xpForNextLevel() const;
     long long xpAtThisLevel() const;
 
     // 连对次数
     int streak() const { return m_streak; }
 
-    // 跨会话恢复：直接设置 XP / 连对（启动或换单元时调用）
-    void setXp(long long xp) { m_xp = xp < 0 ? 0 : xp; }
+    // 累加积分（每题答对时调用；points 由 UnitSession 按 LibNo 决定）
+    void addScore(int points) { if (points > 0) m_score += points; }
+
+    // 跨会话恢复：直接设置 积分 / 连对（启动或换单元时调用）
+    void setXp(long long score) { m_score = score < 0 ? 0 : static_cast<int>(score); }
     void setStreak(int streak) { m_streak = streak < 0 ? 0 : streak; }
 
     // 击键速度（键/秒），用于曲线：数值较小，绘制时 ×10
@@ -82,15 +88,10 @@ public:
     // 有效计时的空闲阈值（ms）：训练时两次输入间隔超过此值，视为离开，该段不计时
     static constexpr qint64 kIdleThresholdMs = 5000;
 
-    // --- XP / 等级 平衡参数 ---
-    static constexpr long long kBaseXp = 10;       // 每答对一题的基础经验
+    // --- 等级 / 平衡参数 ---
     static constexpr int kRecentWindow = 20;        // 最近速度窗口题数
-    static constexpr int kRefSpeed     = 60;        // 速度系数基准（字/分词/分钟）
-    static constexpr double kSpeedFactorMin = 0.5;  // 速度系数下限
-    static constexpr double kSpeedFactorMax = 2.5;  // 速度系数上限
-    static constexpr int kStreakCap   = 50;         // 连对加成封顶题数
-    static constexpr double kStreakStep = 0.02;     // 每连对一题的加成
-    // 升级所需 XP（等级编号从 1 开始）：level^1.5 递增曲线
+    static constexpr int kScorePerLevel = 10;       // 每级所需积分（原版 62064=10）
+    // 升级所需积分（等级编号从 1 开始）：固定 kScorePerLevel
     static long long xpNeededForLevel(int level);
 
 private:
@@ -109,7 +110,7 @@ private:
     int m_keyStrokes = 0;       // 累计击键次数
 
     // 跨会话进度（只增不减）
-    long long m_xp = 0;         // 累计经验
+    int m_score = 0;            // 累计积分（对应原版 [self+62070]）
     int m_streak = 0;           // 当前连对次数
 
     // 最近 N 题窗口（用于 recentSpeed）

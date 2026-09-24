@@ -96,10 +96,15 @@ bool UnitSession::submit(const QString &input)
     }
 
     const int questionIndex = m_pool.currentQuestionIndex();
-    updateSpeedTable(questionIndex, correct, elapsed);
+    updateSpeedTable(questionIndex, correct, elapsed, input.trimmed().length());
     // 字词数按题目个数计（每字/词计 1 个）；击键数按输入编码字符数计
     const int keyStrokes = qMax(1, input.trimmed().length());
     m_speed.recordKey(correct, 1, elapsed, keyStrokes);
+
+    // 积分累计（对应原版 [self+62070] += [self+62074]）
+    //   仅答对时累加，LibNo < 20 → 固定 3 分/题
+    if (correct)
+        m_speed.addScore(scoreForItem(m_unit->libNo));
 
     // 实时刷新 Used（每答一题检查一次）
     m_unit->used = UserData::isUnitCompleted(*m_unit) ? 1 : 0;
@@ -107,7 +112,8 @@ bool UnitSession::submit(const QString &input)
     return correct;
 }
 
-void UnitSession::updateSpeedTable(int questionIndex, bool correct, qint64 elapsedMs)
+void UnitSession::updateSpeedTable(int questionIndex, bool correct,
+                                   qint64 elapsedMs, int codeLen)
 {
     if (!m_unit) return;
     if (questionIndex < 0 || questionIndex >= m_unit->speedTable.size()) return;
@@ -120,14 +126,33 @@ void UnitSession::updateSpeedTable(int questionIndex, bool correct, qint64 elaps
             if (table[questionIndex] >= 50000)
                 --table[questionIndex];
 
-            if (table[questionIndex] < 50000)
-                table[questionIndex] = static_cast<int>(elapsedMs);
+            if (table[questionIndex] < 50000) {
+                // 按输入编码长度折算耗时（对应原版 sub_0040D3A6~D3ED）：
+                //   2 码 → ×0.7   3 码 → ×0.5   4 码 → ×0.3   其他 → ×1.0
+                double factor = 1.0;
+                switch (codeLen) {
+                case 2:  factor = 0.7; break;
+                case 3:  factor = 0.5; break;
+                case 4:  factor = 0.3; break;
+                default: factor = 1.0; break;
+                }
+                table[questionIndex] =
+                    static_cast<int>(elapsedMs * factor + 0.5);
+            }
         } else {
             table[questionIndex] = Judge::kErrorMark;
         }
     }
 
     m_pool.setSpeedTable(table);
+}
+
+// 每题积分（对应原版 [self+62074]）：LibNo < 20 → 固定 3 分/题
+int UnitSession::scoreForItem(int libNo) const
+{
+    if (libNo < 20)
+        return 3;
+    return 1;
 }
 
 bool UnitSession::isRoundEnd() const

@@ -41,7 +41,7 @@ InfoPanel::InfoPanel(QWidget *parent)
     };
 
     addRow(0, "等级：", m_labelGrade);
-    addRow(1, "经验：", m_labelXp);
+    addRow(1, "积分：", m_labelXp);
     addRow(2, "总时间：", m_labelTotalTime);
     addRow(3, "单元时间：", m_labelUnitTime);
     addRow(4, "本次时间：", m_labelSessionTime);

@@ -76,7 +76,13 @@ signals:
 
 private:
     QStringList getCorrectCodes(const ZbItem &item) const;
-    void updateSpeedTable(int questionIndex, bool correct, qint64 elapsedMs);
+    // 更新速度表。codeLen 为本次输入编码长度，用于按码长折算耗时（对应原版系数）
+    void updateSpeedTable(int questionIndex, bool correct,
+                          qint64 elapsedMs, int codeLen = 0);
+
+    // 某题答对时得到的积分（对应原版 [self+62074]）
+    //   LibNo < 20 → 固定 3 分/题，否则取默认值
+    int scoreForItem(int libNo) const;
 
     ZbUnit *m_unit = nullptr;
     ZmmbTable *m_zmmb = nullptr;

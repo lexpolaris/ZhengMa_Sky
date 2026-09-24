@@ -1,7 +1,5 @@
 #include "SpeedTracker.h"
 #include <QTime>
-#include <QtMath>
-#include <algorithm>
 
 SpeedTracker::SpeedTracker() {}
 
@@ -21,9 +19,9 @@ void SpeedTracker::startSession(bool keepProgress)
     m_winMs = 0;
     m_recentSpeed = 0;
 
-    // 跨会话进度：默认保留（等级只升不降）；换单元时 keepProgress=false 清零
+    // 跨会话进度：默认保留（积分只增不减）；换单元时 keepProgress=false 清零
     if (!keepProgress) {
-        m_xp = 0;
+        m_score = 0;
         m_streak = 0;
     }
 }
@@ -37,46 +35,29 @@ void SpeedTracker::resetSession()
     m_recentSpeed = 0;
 }
 
-// 升级所需 XP（等级编号从 1 开始）：A * level^1.5
+// 升级所需积分（等级编号从 1 开始）：每级固定 kScorePerLevel
 long long SpeedTracker::xpNeededForLevel(int level)
 {
     if (level < 1) level = 1;
-    const double a = 100.0;   // 曲线系数
-    return static_cast<long long>(a * qPow(static_cast<double>(level), 1.5));
+    return static_cast<long long>(kScorePerLevel);
 }
 
 int SpeedTracker::grade() const
 {
-    // 等级 = 累计 XP 达标的里程碑：只升不降
-    int level = 0;
-    long long acc = 0;
-    while (true) {
-        const long long need = xpNeededForLevel(level + 1);
-        if (need <= 0) break;
-        if (m_xp < acc + need) break;
-        acc += need;
-        ++level;
-    }
-    return level;
+    // 等级 = 累计积分 / 10 + 1（对应原版 grade = score/10 + 1）
+    return m_score / kScorePerLevel + 1;
 }
 
 long long SpeedTracker::xpForNextLevel() const
 {
-    return xpNeededForLevel(grade() + 1);
+    // 升到下一级的累计积分门槛（按当前等级线性累加）
+    return static_cast<long long>(grade()) * kScorePerLevel;
 }
 
 long long SpeedTracker::xpAtThisLevel() const
 {
-    int level = 0;
-    long long acc = 0;
-    while (true) {
-        const long long need = xpNeededForLevel(level + 1);
-        if (need <= 0) break;
-        if (m_xp < acc + need) break;
-        acc += need;
-        ++level;
-    }
-    return m_xp - acc;   // 当前等级内已获得的 XP
+    // 当前等级内已获得的积分（0..kScorePerLevel-1）
+    return m_score % kScorePerLevel;
 }
 
 int SpeedTracker::recentSpeed() const
@@ -125,22 +106,11 @@ void SpeedTracker::recordKey(bool correct, int itemCount, qint64 elapsedMs, int 
         m_winMs = 0;
     }
 
-    // 5. 计算速度并结算经验
+    // 5. 计算速度
     updateSpeed();
 
-    // 6. 结算本题 XP（答对才有；速度/连对作为乘数，而非等级本身）
-    if (correct) {
-        const double refNow = static_cast<double>(recentSpeed());
-        double speedFactor = refNow / kRefSpeed;
-        speedFactor = std::clamp(speedFactor, kSpeedFactorMin, kSpeedFactorMax);
-
-        const int streakBonused = std::min(m_streak, kStreakCap);
-        const double streakBonus = 1.0 + streakBonused * kStreakStep;
-
-        const long long gained = static_cast<long long>(
-            kBaseXp * gain * speedFactor * streakBonus);
-        m_xp += gained;
-    }
+    // 积分（[self+62070]）由 UnitSession 在答对时按 LibNo 累加，
+    // 见 UnitSession::submit() → SpeedTracker::addScore()
 }
 
 void SpeedTracker::updateSpeed()
