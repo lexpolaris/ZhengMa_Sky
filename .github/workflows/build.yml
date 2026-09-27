@@ -1,0 +1,175 @@
+name: Build (Windows / Linux x86_64)
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  QT_VERSION: '6.5.3'
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            os: windows-latest
+            artifact: zhengma-sky-windows-x64
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            artifact: zhengma-sky-linux-x86_64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---------- 安装 Qt（含 Widgets / Xml / Charts 及所有必要依赖） ----------
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || 'linux_gcc_64' }}
+          modules: 'qtcharts'
+          cache: true
+
+      # ---------- Linux: 安装编译工具与运行时依赖 ----------
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build patchelf
+          # Qt 运行所需的图形 / 字体库（绿色包也能在纯净系统上跑起来的关键依赖）
+          sudo apt-get install -y \
+            libgl1-mesa-dev libglu1-mesa-dev \
+            libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-cursor0 libfontconfig1 libfreetype6 libdbus-1-3
+
+      # ---------- 配置 ----------
+      - name: Configure (Windows)
+        if: runner.os == 'Windows'
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Configure (Linux)
+        if: runner.os == 'Linux'
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      # ---------- 编译 ----------
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: cmake --build build --parallel
+
+      # ---------- Windows 绿色打包：windeployqt 收集 Qt DLL 与插件 ----------
+      - name: Package portable (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dist = "dist/zhengma-sky"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          Copy-Item "build/${{ env.BUILD_TYPE }}/zhengma-sky.exe" $dist
+          # 收集 Qt 运行时（DLL + platforms/styles/imageformats 等插件）
+          windeployqt --release --no-translations --no-system-d3d-compiler --no-opengl-sw "$dist/zhengma-sky.exe"
+          # 绿色版标记：用户数据将写到程序同目录的 data 子目录
+          New-Item -ItemType File -Force -Path "$dist/portable.txt" | Out-Null
+          Copy-Item README.md $dist -ErrorAction SilentlyContinue
+          Copy-Item zhengma.svg $dist -ErrorAction SilentlyContinue
+          Compress-Archive -Path "$dist/*" -DestinationPath "dist/${{ matrix.artifact }}.zip" -Force
+          Get-ChildItem $dist -Recurse | Select-Object FullName
+
+      # ---------- Linux 绿色打包：手动收集 .so + 插件 + 启动脚本 ----------
+      - name: Package portable (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          set -e
+          DIST="dist/zhengma-sky"
+          rm -rf "$DIST"; mkdir -p "$DIST/bin" "$DIST/lib" "$DIST/plugins/platforms" \
+                                     "$DIST/plugins/imageformats" "$DIST/plugins/styles" \
+                                     "$DIST/plugins/xcbglintegrations" "$DIST/plugins/iconengines"
+          cp build/zhengma-sky "$DIST/bin/"
+
+          # 通过 ldd 递归收集可执行文件及 Qt 插件所依赖的非系统 .so
+          # 仅收集 Qt 相关库；系统基础库（glibc / GL / 字体等）交给目标机器
+          collect_deps() {
+            local target="$1"
+            ldd "$target" 2>/dev/null \
+              | awk '/=>/ && $3 ~ /^\/.*libQt6|^\/.*libicu/ {print $3}' \
+              | while read -r lib; do
+                  cp -n -L "$lib" "$DIST/lib/" 2>/dev/null || true
+                done
+            return 0
+          }
+          collect_deps "$DIST/bin/zhengma-sky"
+
+          # Qt 插件（platforms 必须，其余为常用增强）
+          QT_DIR="$(qmake6 -query QT_INSTALL_PLUGINS 2>/dev/null || qmake -query QT_INSTALL_PLUGINS)"
+          cp -L "$QT_DIR/platforms/"*.so            "$DIST/plugins/platforms/" 2>/dev/null || true
+          cp -L "$QT_DIR/imageformats/"*.so         "$DIST/plugins/imageformats/" 2>/dev/null || true
+          cp -L "$QT_DIR/styles/"*.so               "$DIST/plugins/styles/" 2>/dev/null || true
+          cp -L "$QT_DIR/xcbglintegrations/"*.so    "$DIST/plugins/xcbglintegrations/" 2>/dev/null || true
+          cp -L "$QT_DIR/iconengines/"*.so          "$DIST/plugins/iconengines/" 2>/dev/null || true
+
+          # 平台插件自身依赖（如 libQt6XcbQpa）也一并收集
+          for so in "$DIST"/plugins/platforms/*.so; do collect_deps "$so"; done
+
+          # 绿色版标记 + 启动脚本（自动设置库路径，双击即可运行）
+          touch "$DIST/portable.txt"
+          cat > "$DIST/run.sh" <<'EOF'
+          #!/usr/bin/env bash
+          HERE="$(cd "$(dirname "$0")" && pwd)"
+          export LD_LIBRARY_PATH="$HERE/lib:${LD_LIBRARY_PATH}"
+          export QT_PLUGIN_PATH="$HERE/plugins"
+          export QT_QPA_PLATFORM_PLUGIN_PATH="$HERE/plugins/platforms"
+          exec "$HERE/bin/zhengma-sky" "$@"
+          EOF
+          chmod +x "$DIST/run.sh"
+
+          # 修复收集来的 .so 的 rpath，使其优先从同目录 lib 加载
+          for so in "$DIST/lib/"*.so*; do
+            patchelf --set-rpath '$ORIGIN' "$so" 2>/dev/null || true
+          done
+          patchelf --set-rpath '$ORIGIN/../lib' "$DIST/bin/zhengma-sky" 2>/dev/null || true
+
+          cp README.md zhengma.svg "$DIST" 2>/dev/null || true
+
+          # 用 tar.gz 保留可执行权限
+          (cd dist && tar -czf "${{ matrix.artifact }}.tar.gz" zhengma-sky)
+          ls -R "$DIST"
+
+      # ---------- 上传产物 ----------
+      - name: Upload artifact (Windows)
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.zip
+          if-no-files-found: error
+
+      - name: Upload artifact (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/${{ matrix.artifact }}.tar.gz
+          if-no-files-found: error
+
+      # ---------- 打 tag 时附带发布 ----------
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+          generate_release_notes: true

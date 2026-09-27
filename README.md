@@ -15,6 +15,8 @@
 - **训练进度持久化**：每题速度表、等级、积分、连对都会写回 `user.xml`，跨会话/换单元不丢失。
 - **测试曲线**：用 Qt Charts 绘制速度 / 成绩曲线，记录每个单元最近 10 次成绩。
 - **中文本地化界面**：完整中文提示与帮助。
+- **绿色运行**：程序目录放一个 `portable.txt`（或使用 CI 出的绿色包）即可免安装运行，
+  用户数据写到程序同目录的 `data/`，可直接拷贝携带。
 
 ---
 
@@ -42,12 +44,12 @@ zhengma-sky/
 │   ├── TestResultDialog.*  # 测试记录 / 曲线
 │   └── HelpDialog.*        # 帮助显示
 └── data/                   # 运行时数据
-    ├── train.txt           # 题库（TSV，静态）
+    ├── train.txt           # 题库（TSV，静态，已经编译到资源文件）
     ├── user.xml            # 用户进度（运行时读写）
-    ├── zmmb.txt            # 郑码码表
-    ├── zmzg.ttf            # 字根字体（原版）
-    ├── help.txt            # 帮助文档（原版）
-    ├── UnitHelp.txt        # 单元说明（原版）
+    ├── zmmb.txt            # 郑码码表（已经编译到资源文件）
+    ├── zmzg.ttf            # 字根字体（原版，已经编译到资源文件）
+    ├── help.txt            # 帮助文档（已经编译到资源文件）
+    ├── UnitHelp.txt        # 单元说明（原版，已经编译到资源文件）
     └── test_history.xml    # 测试记录（运行时读写）
 ```
 
@@ -163,6 +165,31 @@ cmake --build build -j
 - **C++17 编译器**（GCC 9+ / Clang 10+ / MSVC 2019+）
 
 构建后 `data/` 会自动复制到可执行文件同目录。
+
+---
+
+## 免编译下载（绿色版）
+
+本项目配置了 GitHub Actions 在线编译（见
+[`.github/workflows/build.yml`](.github/workflows/build.yml)）。
+在仓库 **Actions** 页面下载最新一次 `Build` 的 **zhengma-sky-windows-x64** /
+**zhengma-sky-linux-x86_64** 产物，解压后即可**绿色运行**，
+目标机器无需安装 Qt 或任何依赖：
+
+| 平台 | 产物 | 运行方式 |
+|------|------|----------|
+| Windows x64 | `zhengma-sky-windows-x64.zip` | 解压后双击 `zhengma-sky.exe` |
+| Linux x86_64 | `zhengma-sky-linux-x86_64.tar.gz` | 解压后执行 `./run.sh` |
+
+绿色包内已包含 Qt 运行库与必要插件（platforms / styles / imageformats 等），
+并放置了 `portable.txt` 标记：
+
+- **用户数据（`user.xml` / `test_history.xml`）写入程序同目录的 `data/`**，
+  整个文件夹可直接拷贝到 U 盘携带，**不写注册表、不污染系统目录**。
+- 静态素材（题库 `train.txt`、码表 `zmmb.txt`、字根字体 `zmzg.ttf`、帮助文档）
+  已内嵌于可执行文件，无需额外文件即可运行。
+
+> 推送形如 `v1.0` 的 tag 时，CI 会自动创建 GitHub Release 并附带两个平台的绿色包。
 
 ---
 

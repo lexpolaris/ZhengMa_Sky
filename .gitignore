@@ -18,3 +18,10 @@ CMakeUserPresets.json
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #cmake-build-*
 build
+build-*
+dist/
+# 绿色运行生成的数据（用户进度 / 测试记录）
+portable.txt
+/data/user.xml
+/data/test_history.xml
+
