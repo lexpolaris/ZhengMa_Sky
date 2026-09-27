@@ -21,7 +21,7 @@ jobs:
       matrix:
         include:
           - name: Windows x64
-            os: windows-latest
+            os: windows-2022
             artifact: zhengma-sky-windows-x64
           - name: Linux x86_64
             os: ubuntu-22.04
@@ -39,6 +39,7 @@ jobs:
           arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || 'linux_gcc_64' }}
           modules: 'qtcharts'
           cache: true
+          aqtversion: '==3.1.19'
 
       # ---------- Linux: 安装编译工具与运行时依赖 ----------
       - name: Install Linux build deps
