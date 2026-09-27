@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 env:
-  QT_VERSION: '6.5.3'
+  QT_VERSION: '6.11.2'
   BUILD_TYPE: Release
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           arch: ${{ runner.os == 'Windows' && 'win64_msvc2019_64' || 'linux_gcc_64' }}
           modules: 'qtcharts'
-          archives: 'qtbase'
+          # archives: 'qtbase'
           cache: true
 
       # ---------- Linux: 安装编译工具与运行时依赖 ----------
