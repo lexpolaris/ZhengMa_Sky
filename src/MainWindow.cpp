@@ -18,7 +18,25 @@
 #include <QFile>
 #include <QCoreApplication>
 #include <QCloseEvent>
+#include <QStandardPaths>
 #include <QDebug>
+
+// 用户可写数据目录：QStandardPaths::AppDataLocation。
+// 因未设置 organizationName，Linux 下为 ~/.local/share/zhengma_sky。
+// 静态素材（help.txt / train.txt / UnitHelp.txt / zmmb.txt / zmzg.ttf）
+// 已内嵌于 qrc，统一通过 :/data/ 前缀访问。
+static QString userDataDir()
+{
+    const QString dir = QStandardPaths::writableLocation(
+        QStandardPaths::AppConfigLocation);
+    QDir().mkpath(dir);
+    return dir;
+}
+
+static QString userDataPath(const QString &fileName)
+{
+    return QDir(userDataDir()).filePath(fileName);
+}
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -151,18 +169,14 @@ void MainWindow::setupConnections()
 
 bool MainWindow::loadData()
 {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString trainTxtPath = QDir(appDir).filePath("data/train.txt");
-    const QString trainXmlPath = QDir(appDir).filePath("data/Train.xml");
-    const QString userPath  = QDir(appDir).filePath("data/user.xml");
-    const QString zmmbPath  = QDir(appDir).filePath("data/zmmb.txt");
-    const QString historyPath = QDir(appDir).filePath("data/test_history.xml");
+    // 静态素材：内嵌资源
+    const QString trainPath   = ":/data/train.txt";
+    const QString zmmbPath     = ":/data/zmmb.txt";
+    // 用户可写数据：AppDataLocation
+    const QString userPath    = userDataPath("user.xml");
+    const QString historyPath = userDataPath("test_history.xml");
 
-    // 1. 加载题库：优先紧凑文本 train.txt，回退到旧版 XML Train.xml
-    QString trainPath = trainTxtPath;
-    if (!QFile::exists(trainPath))
-        trainPath = trainXmlPath;
-
+    // 1. 加载题库（内嵌 train.txt）
     if (!m_userData.loadTemplate(trainPath)) {
         qWarning() << "题库加载失败:" << trainPath;
         return false;
@@ -189,8 +203,7 @@ bool MainWindow::loadData()
 void MainWindow::saveUserData()
 {
     syncProgressToData();
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString path = QDir(appDir).filePath("data/user.xml");
+    const QString path = userDataPath("user.xml");
     m_userData.saveUserData(path);
 }
 
@@ -500,8 +513,7 @@ void MainWindow::finishTest()
 
 void MainWindow::saveTestHistory()
 {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString path = QDir(appDir).filePath("data/test_history.xml");
+    const QString path = userDataPath("test_history.xml");
     m_testHistory.save(path);
 }
 
@@ -612,9 +624,8 @@ void MainWindow::onStatusClicked()
 
 void MainWindow::onHelpClicked()
 {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString path = QDir(appDir).filePath("data/help.txt");
-    HelpDialog dlg(path, this);
+    // 帮助文档内嵌于 qrc
+    HelpDialog dlg(":/data/help.txt", this);
     dlg.exec();
 }
 

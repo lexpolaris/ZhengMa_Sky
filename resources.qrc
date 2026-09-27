@@ -1,0 +1,10 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+    <qresource prefix="/data">
+        <file alias="help.txt">data/help.txt</file>
+        <file alias="train.txt">data/train.txt</file>
+        <file alias="UnitHelp.txt">data/UnitHelp.txt</file>
+        <file alias="zmmb.txt">data/zmmb.txt</file>
+        <file alias="zmzg.ttf">data/zmzg.ttf</file>
+    </qresource>
+</RCC>

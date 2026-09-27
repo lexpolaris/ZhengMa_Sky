@@ -98,8 +98,8 @@ QString UnitSelectDialog::normalizeName(const QString &name)
 
 void UnitSelectDialog::loadHelpFile()
 {
-    const QString appDir = QCoreApplication::applicationDirPath();
-    const QString path = QDir(appDir).filePath("data/UnitHelp.txt");
+    // 单元说明内嵌于 qrc
+    const QString path = ":/data/UnitHelp.txt";
 
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {

@@ -1,16 +1,14 @@
 #include <QApplication>
 #include <QFontDatabase>
-#include <QDir>
 #include <QStyleFactory>
-
 #include "MainWindow.h"
 
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-    app.setApplicationName("郑码天空");
-    app.setOrganizationName("ZhengMaSky");
-
+    // 只设置应用名，不设 organizationName，避免配置路径出现
+    // ~/.config/zhengma_sky/zhengma_sky 这样的重复目录。
+    app.setApplicationName("zhengma_sky");
     // ---- 统一调色板：浅色，但所有颜色走 QPalette 角色 ----
     app.setStyle(QStyleFactory::create("Fusion"));
 
@@ -31,20 +29,19 @@ int main(int argc, char *argv[])
     pal.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(0xA0, 0xA0, 0xA0));
     app.setPalette(pal);
 
-    // 加载字根字体
-    QString fontPath = QDir(QCoreApplication::applicationDirPath())
-                           .filePath("data/zmzg.ttf");
-    int fontId = QFontDatabase::addApplicationFont(fontPath);
+    // 加载字根字体（内嵌于 qrc，无需外部文件）
+    int fontId = QFontDatabase::addApplicationFont(":/data/zmzg.ttf");
     if (fontId >= 0) {
         QStringList families = QFontDatabase::applicationFontFamilies(fontId);
         if (!families.isEmpty()) {
             qDebug() << "已加载字根字体:" << families.at(0);
         }
     } else {
-        qWarning() << "未能加载字根字体:" << fontPath;
+        qWarning() << "未能加载字根字体: :/data/zmzg.ttf";
     }
 
     MainWindow w;
     w.show();
     return app.exec();
 }
+
