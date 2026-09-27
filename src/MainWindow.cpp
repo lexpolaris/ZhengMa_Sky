@@ -21,12 +21,23 @@
 #include <QStandardPaths>
 #include <QDebug>
 
-// 用户可写数据目录：QStandardPaths::AppDataLocation。
-// 因未设置 organizationName，Linux 下为 ~/.local/share/zhengma_sky。
+// 用户可写数据目录。
+// 绿色版：若可执行文件同目录存在 portable.txt，则数据写到 exe 同目录的 data/ 下，
+//         整个程序目录可直接拷贝携带，无需安装、不污染系统。
+// 安装版：回退到 QStandardPaths::AppConfigLocation
+//         （因未设 organizationName，Linux 下为 ~/.config/zhengma_sky）。
 // 静态素材（help.txt / train.txt / UnitHelp.txt / zmmb.txt / zmzg.ttf）
 // 已内嵌于 qrc，统一通过 :/data/ 前缀访问。
 static QString userDataDir()
 {
+    const QString appDir = QCoreApplication::applicationDirPath();
+    // 绿色运行标记：exe 同目录的 portable.txt
+    if (QFile::exists(QDir(appDir).filePath("portable.txt"))) {
+        const QString dir = QDir(appDir).filePath("data");
+        QDir().mkpath(dir);
+        return dir;
+    }
+
     const QString dir = QStandardPaths::writableLocation(
         QStandardPaths::AppConfigLocation);
     QDir().mkpath(dir);
