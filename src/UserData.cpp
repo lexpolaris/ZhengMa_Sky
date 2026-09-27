@@ -207,6 +207,8 @@ bool UserData::loadUserData(const QString &filePath)
         unit->wrongCount = libElem.attribute("WrongCount", "0").toInt();
         unit->rightCount = libElem.attribute("RightCount", "0").toInt();
         unit->used       = libElem.attribute("Used", "0").toInt();
+        unit->poolBlockCursor = libElem.attribute("PoolBlockCursor", "0").toInt();
+        unit->allPassed = libElem.attribute("AllPassed", "0").toInt();
 
         // 速度表
         QDomElement speeds = libElem.firstChildElement("SpeedTable");
@@ -285,6 +287,9 @@ bool UserData::saveUserData(const QString &filePath) const
 
         // Used 始终根据速度表实时计算，避免与 u.used 不一致
         lib.setAttribute("Used", isUnitCompleted(u) ? "1" : "0");
+
+        lib.setAttribute("PoolBlockCursor", QString::number(u.poolBlockCursor));
+        lib.setAttribute("AllPassed", u.allPassed ? "1" : "0");
 
         // 速度表：只保存非零项，压缩存储
         QDomElement speeds = doc.createElement("SpeedTable");
@@ -416,4 +421,19 @@ bool UserData::isUnitCompleted(const ZbUnit &unit)
             ++trained;
     }
     return trained >= unit.items.size();
+}
+
+// 单元是否"每道题都答对过"：
+//   速度表值 != 0（练过）且 < Judge::kPassMark（已脱离错题区）
+bool UserData::isUnitAllPassed(const ZbUnit &unit)
+{
+    if (unit.items.isEmpty()) return false;
+
+    const int n = unit.items.size();
+    for (int i = 0; i < n; ++i) {
+        const int v = (i < unit.speedTable.size()) ? unit.speedTable[i] : 0;
+        if (v == 0 || v >= Judge::kPassMark)
+            return false;
+    }
+    return true;
 }

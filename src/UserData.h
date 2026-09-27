@@ -1,5 +1,7 @@
 // UserData.h
 #pragma once
+#include "Judge.h"
+
 #include <QString>
 #include <QList>
 #include <QDomDocument>
@@ -25,6 +27,11 @@ struct ZbUnit {
     // 运行时状态
     QList<int> speedTable;   // 每题速度（ms）
     QList<int> indexArray;   // 题目池索引
+
+    // 跨会话训练进度：分块轮转游标
+    int poolBlockCursor = 0;
+
+    int allPassed = 0;
 };
 
 // 模式状态
@@ -93,6 +100,10 @@ public:
 
     // 单元是否已完成（速度表非零项 ≥ 题目数）
     static bool isUnitCompleted(const ZbUnit &unit);
+
+    // 单元是否"每道题都答对过"（速度表非零，且无 kErrorMark 错题标记）
+    // 跨会话累计：只要曾经答对过就算通过，重练答错会重新标记
+    static bool isUnitAllPassed(const ZbUnit &unit);
 
 private:
     void parseRoot(const QDomElement &root);

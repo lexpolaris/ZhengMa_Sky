@@ -69,6 +69,13 @@ public:
     };
     QList<TestItemEntry> getTestItemsWithIndex() const;
 
+    bool isUnitCompleted() const {
+        return m_unit && UserData::isUnitCompleted(*m_unit);
+    }
+    bool isUnitAllPassed() const {
+        return m_unit && UserData::isUnitAllPassed(*m_unit);
+    }
+
 signals:
     void questionChanged();
     void roundFinished();

@@ -44,7 +44,11 @@ void UnitSession::start(ZbUnit *unit, ZmmbTable *zmmb, int trainMax)
             m_unit->speedTable[i] = 0;
     }
 
-    m_pool.init(count, qMax(1, roundCount), m_unit->speedTable);
+    // 传入持久化的块游标，跨会话续上进度
+    m_pool.init(count, qMax(1, roundCount),
+                m_unit->speedTable,
+                m_unit->poolBlockCursor);
+
     m_speed.setEffectiveTiming(true);   // 训练：有效计时
     m_speed.startSession();
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
@@ -109,6 +113,8 @@ bool UnitSession::submit(const QString &input)
     // 实时刷新 Used（每答一题检查一次）
     m_unit->used = UserData::isUnitCompleted(*m_unit) ? 1 : 0;
 
+    m_unit->allPassed = UserData::isUnitAllPassed(*m_unit) ? 1 : 0;
+
     return correct;
 }
 
@@ -122,12 +128,13 @@ void UnitSession::updateSpeedTable(int questionIndex, bool correct,
 
     if (elapsedMs < Judge::kMaxElapsedMs) {
         if (correct) {
-            // 速度表记录反应时间（ms），越小越熟悉
-            if (table[questionIndex] >= 50000)
+            // 仍在错题区：先递减（错题多练几次，防止忘记）
+            if (table[questionIndex] >= Judge::kPassMark)
                 --table[questionIndex];
 
-            if (table[questionIndex] < 50000) {
-                // 按输入编码长度折算耗时（对应原版 sub_0040D3A6~D3ED）：
+            // 已脱离错题区：写实际耗时
+            if (table[questionIndex] < Judge::kPassMark) {
+                // 按输入编码长度折算耗时（对应原版系数）：
                 //   2 码 → ×0.7   3 码 → ×0.5   4 码 → ×0.3   其他 → ×1.0
                 double factor = 1.0;
                 switch (codeLen) {
@@ -140,6 +147,7 @@ void UnitSession::updateSpeedTable(int questionIndex, bool correct,
                     static_cast<int>(elapsedMs * factor + 0.5);
             }
         } else {
+            // 答错：打错题标记
             table[questionIndex] = Judge::kErrorMark;
         }
     }
@@ -169,6 +177,11 @@ void UnitSession::nextRound()
 {
     ++m_currentRound;
     m_pool.reshuffle();
+
+    // 把新的块游标写回单元，保证跨会话续上
+    if (m_unit)
+        m_unit->poolBlockCursor = m_pool.blockCursor();
+
     m_pool.next();          // 立即取出新一轮第一题
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
     emit questionChanged();
@@ -186,6 +199,11 @@ void UnitSession::enterTestMode()
 int UnitSession::next()
 {
     const int idx = m_pool.next();
+    if (idx < 0) {
+        // 不应发生：说明调用方在轮末还调 next()
+        qWarning() << "QuestionPool::next() 越界，忽略";
+        return -1;
+    }
     m_lastKeyTime = QDateTime::currentMSecsSinceEpoch();
     emit questionChanged();
     return idx;
@@ -232,12 +250,14 @@ void UnitSession::reportTestAnswer(int questionIndex, bool correct)
     auto &table = m_unit->speedTable;
 
     if (correct) {
-        if (table[questionIndex] >= Judge::kErrorMark) {
-            // 曾经错，现在对：清除错误标记
-            table[questionIndex] = 0;
+        // 测试答对：直接脱离错题区（写 kPassMark - 1，非零且 < kPassMark）
+        // 若从未练过（0），也视为通过
+        if (table[questionIndex] >= Judge::kPassMark
+            || table[questionIndex] == 0) {
+            table[questionIndex] = Judge::kPassMark - 1;
         }
     } else {
-        // 答错：标记为错题，训练时加重
+        // 答错：标记错题
         table[questionIndex] = Judge::kErrorMark;
     }
 }

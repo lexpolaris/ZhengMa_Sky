@@ -213,9 +213,26 @@ void UnitSelectDialog::addUnitToTab(int tabIndex, const ZbUnit &unit)
 {
     if (tabIndex < 0 || tabIndex >= 5) return;
 
+    QString status;
+    if (unit.allPassed) {
+        status = "  ✓";          // 全对通过
+    } else if (unit.used) {
+        status = "  ●";          // 练过但未全对
+    }
+
     auto *item = new QListWidgetItem(
-        QString("%1  (%2 题)").arg(unit.libName).arg(unit.items.size()));
+        QString("%1  (%2 题)%3")
+            .arg(unit.libName)
+            .arg(unit.items.size())
+            .arg(status));
     item->setData(Qt::UserRole, unit.libNo);
+
+    // 可选：全对的单元用绿色
+    if (unit.allPassed) {
+        item->setForeground(QColor(0x00, 0x64, 0x32));
+    } else if (unit.used) {
+        item->setForeground(QColor(0x88, 0x88, 0x88));
+    }
 
     m_listWidgets[tabIndex]->addItem(item);
 }
@@ -243,12 +260,16 @@ void UnitSelectDialog::updateHelp(const ZbUnit &unit)
     html += QString("<p style='margin:0 0 8px 0;'>"
                     "<b>单元名称：</b>%1<br>"
                     "<b>单元编号：</b>%2<br>"
-                    "<b>题目数量：</b>%3</p>")
+                    "<b>题目数量：</b>%3<br>"
+                    "<b>训练状态：</b>%4</p>")
             .arg(unit.libName.toHtmlEscaped())
             .arg(unit.libNo)
-            .arg(unit.items.size());
+            .arg(unit.items.size())
+            .arg(unit.allPassed ? "全部答对 ✓"
+                 : unit.used    ? "已训练，未全对"
+                                : "未训练");
 
-    // ★ 从 UnitHelp.txt 取说明
+    // 从 UnitHelp.txt 取说明
     QString help = helpForUnit(unit.libName);
     if (help.isEmpty()) {
         help = "（暂无该单元的说明）";

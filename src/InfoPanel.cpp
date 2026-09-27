@@ -76,12 +76,12 @@ InfoPanel::InfoPanel(QWidget *parent)
         return btn;
     };
 
-    auto *btnSwitchModeClicked = createButton("切换模式");
-    auto *btnSelectLib = createButton("选择单元库");
+    auto *btnSwitchModeClicked = createButton("训练↔测试");
+    auto *btnSelectLib = createButton("选择单元");
     auto *btnSetup = createButton("参数设置");
     auto *btnStatus = createButton("测试记录");
-    auto *btnHelp = createButton("帮助");
-    auto *btnQuit = createButton("退出");
+    auto *btnHelp = createButton("使用帮助");
+    auto *btnQuit = createButton("退　　出");
 
     connect(btnSwitchModeClicked, &QPushButton::clicked, this, &InfoPanel::switchModeClicked);
     connect(btnSelectLib, &QPushButton::clicked, this, &InfoPanel::selectLibClicked);

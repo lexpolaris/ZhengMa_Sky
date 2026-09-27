@@ -137,7 +137,7 @@ struct ZbUnit {
     int rightCount;      // 累计答对
     int used;            // 是否已完成
     QList<ZbItem> items;
-    QList<int> speedTable;  // ★ 每题速度值（ms），核心状态
+    QList<int> speedTable;  // 每题速度值（ms），核心状态
 };
 
 // 模式状态（训练 / 测试 各一份）

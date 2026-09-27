@@ -39,6 +39,7 @@ private slots:
     void onHelpRequested();
     void onTestPageFinished();     //  测试页面本页完成
     void onTestItemAnswered(bool correct, int originalIndex);   // 每题提交
+    void onTrainUnitCompleted();   // 全部完成且全对 → 下一单元
 
 private:
     void setupUi();

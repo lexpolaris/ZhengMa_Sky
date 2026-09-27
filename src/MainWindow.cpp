@@ -314,19 +314,29 @@ void MainWindow::onInputSubmitted(const QString &text)
     const bool correct = m_session.submit(text);
 
     if (correct) {
-        // 答对：显示正确，进入下一题
         m_questionPanel->setAssociate("✓ 正确", "#006432");
 
-        // 判断轮次
         if (m_session.isRoundEnd()) {
             if (m_session.isTestMode()) {
                 finishTest();
-            } else if (m_session.isAllRoundsEnd()) {
-                onTrainRoundsFinished();
-                return;      // 注意：这里 return，避免后面 clearInput/focusInput 重复
-            } else {
-                m_session.nextRound();
+                return;
             }
+
+            // 全部训练完成 且 每道题都答对过（跨会话累计）→ 进入下一单元
+            if (m_session.isUnitCompleted() && m_session.isUnitAllPassed()) {
+                onTrainUnitCompleted();
+                return;
+            }
+
+            // 练满 trainMax 轮（阶段性结束）→ 弹窗只有「进入测试」
+            if (m_session.isAllRoundsEnd()) {
+                onTrainRoundsFinished();
+                return;
+            }
+
+            // 否则继续下一块（分块轮转）
+            m_session.nextRound();
+
         } else {
             m_session.next();
         }
@@ -347,11 +357,8 @@ void MainWindow::onInputSubmitted(const QString &text)
             "✗ 错误。正确编码：" + codes.join(' '),
             "#CC0000");
 
-        // 输入框清空，方便重试
         m_questionPanel->clearInput();
         m_questionPanel->focusInput();
-
-        // 刷新统计（错误数变了）
         refreshInfoPanel();
     }
 }
@@ -362,24 +369,18 @@ void MainWindow::onTrainRoundsFinished()
     const QString unitName = unit ? unit->libName : QString();
 
     // 刷新 Used
-    if (unit) {
+    if (unit)
         unit->used = UserData::isUnitCompleted(*unit) ? 1 : 0;
-    }
-    saveUserData();   // 立即持久化
-
-    const bool completed = unit && unit->used == 1;
+    saveUserData();
 
     QMessageBox box(this);
     box.setWindowTitle("训练结束");
     box.setIcon(QMessageBox::Question);
-    box.setText(completed
-        ? QString("《%1》已完成！\n请选择下一步：").arg(unitName)
-        : QString("《%1》训练结束。\n请选择下一步：").arg(unitName));
+    box.setText(QString("《%1》阶段性训练结束。\n请选择下一步：").arg(unitName));
 
-    QPushButton *btnTest    = box.addButton("进入测试", QMessageBox::AcceptRole);
-    QPushButton *btnNext    = box.addButton("下一单元", QMessageBox::ActionRole);
-    QPushButton *btnAgain   = box.addButton("继续训练", QMessageBox::ActionRole);
-    QPushButton *btnCancel  = box.addButton("关闭",     QMessageBox::RejectRole);
+    QPushButton *btnTest   = box.addButton("进入测试", QMessageBox::AcceptRole);
+    QPushButton *btnAgain  = box.addButton("继续训练", QMessageBox::ActionRole);
+    QPushButton *btnCancel = box.addButton("关闭",     QMessageBox::RejectRole);
 
     box.setDefaultButton(btnTest);
     box.exec();
@@ -387,21 +388,44 @@ void MainWindow::onTrainRoundsFinished()
     QAbstractButton *clicked = box.clickedButton();
 
     if (clicked == btnTest) {
-        // 进入测试
         m_learnMode = LearnMode::Test;
         m_userData.setLastMode(static_cast<int>(m_learnMode));
         applyLearnMode(LearnMode::Test);
-    } else if (clicked == btnNext) {
-        // 下一单元
-        loadNextUnit();
     } else if (clicked == btnAgain) {
-        // 重做当前单元
         loadUnit(m_currentLibNo);
         updateStatusBarMode();
     } else {
-        // 关闭：停在当前题目上
         m_questionPanel->focusInput();
     }
+}
+
+void MainWindow::onTrainUnitCompleted()
+{
+    ZbUnit *unit = m_userData.findUnit(m_currentLibNo);
+    const QString unitName = unit ? unit->libName : QString();
+
+    if (unit) {
+        unit->used = 1;
+        unit->allPassed = 1;
+    }
+    saveUserData();
+
+    QMessageBox box(this);
+    box.setWindowTitle("单元完成");
+    box.setIcon(QMessageBox::Information);
+    box.setText(QString("《%1》全部训练完成，且每道题都答对过！\n进入下一单元：")
+                    .arg(unitName));
+
+    QPushButton *btnNext   = box.addButton("下一单元", QMessageBox::AcceptRole);
+    QPushButton *btnCancel = box.addButton("关闭",     QMessageBox::RejectRole);
+
+    box.setDefaultButton(btnNext);
+    box.exec();
+
+    if (box.clickedButton() == btnNext)
+        loadNextUnit();
+    else
+        m_questionPanel->focusInput();
 }
 
 void MainWindow::loadNextUnit()
